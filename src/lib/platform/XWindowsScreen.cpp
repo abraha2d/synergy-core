@@ -858,25 +858,22 @@ XWindowsScreen::fakeMouseRelativeMove(SInt32 dx, SInt32 dy) const
 }
 
 void
-XWindowsScreen::fakeMouseWheel(SInt32, SInt32 yDelta) const
+XWindowsScreen::fakeMouseWheel(SInt32 xDelta, SInt32 yDelta) const
 {
-	// XXX -- support x-axis scrolling
-	if (yDelta == 0) {
-		return;
-	}
-
+	// Assumption: xDelta and yDelta will never both be non-zero
 	// choose button depending on rotation direction
 	const unsigned int xButton = mapButtonToX(static_cast<ButtonID>(
-												(yDelta >= 0) ? -1 : -2));
+		(yDelta != 0) ? ((yDelta >= 0) ? -1 : -2) : ((xDelta <= 0) ? -3 : -4)
+	));
 	if (xButton == 0) {
 		// If we get here, then the XServer does not support the scroll
 		// wheel buttons, so send PageUp/PageDown keystrokes instead.
 		// Patch by Tom Chadwick.
 		KeyCode keycode = 0;
-		if (yDelta >= 0) {
+		if (yDelta > 0) {
 			keycode = XKeysymToKeycode(m_display, XK_Page_Up);
 		}
-		else {
+		else if (yDelta < 0) {
 			keycode = XKeysymToKeycode(m_display, XK_Page_Down);
 		}
 		if (keycode != 0) {
@@ -887,16 +884,20 @@ XWindowsScreen::fakeMouseWheel(SInt32, SInt32 yDelta) const
 	}
 
 	// now use absolute value of delta
+	if (xDelta < 0) {
+		xDelta = -xDelta;
+	}
 	if (yDelta < 0) {
 		yDelta = -yDelta;
 	}
+	SInt32 delta = (xDelta == 0) ? yDelta : xDelta;
 
-	if (yDelta < m_mouseScrollDelta) {
-		LOG((CLOG_WARN "Wheel scroll delta (%d) smaller than threshold (%d)", yDelta, m_mouseScrollDelta));
+	if (delta < m_mouseScrollDelta) {
+		LOG((CLOG_WARN "Wheel scroll delta (%d) smaller than threshold (%d)", delta, m_mouseScrollDelta));
 	}
 
 	// send as many clicks as necessary
-	for (; yDelta >= m_mouseScrollDelta; yDelta -= m_mouseScrollDelta) {
+	for (; delta >= m_mouseScrollDelta; delta -= m_mouseScrollDelta) {
 		XTestFakeButtonEvent(m_display, xButton, True, CurrentTime);
 		XTestFakeButtonEvent(m_display, xButton, False, CurrentTime);
 	}
@@ -1571,7 +1572,14 @@ XWindowsScreen::onMouseRelease(const XButtonEvent& xbutton)
 		// wheel backward (toward user)
 		sendEvent(m_events->forIPrimaryScreen().wheel(), WheelInfo::alloc(0, -120));
 	}
-	// XXX -- support x-axis scrolling
+	else if (xbutton.button == 6) {
+		// wheel left
+		sendEvent(m_events->forIPrimaryScreen().wheel(), WheelInfo::alloc(-120, 0));
+	}
+	else if (xbutton.button == 7) {
+		// wheel right
+		sendEvent(m_events->forIPrimaryScreen().wheel(), WheelInfo::alloc(120, 0));
+	}
 }
 
 void
@@ -1867,10 +1875,10 @@ XWindowsScreen::mapButtonFromX(const XButtonEvent* event) const
 		return static_cast<ButtonID>(button);
 	}
 
-	// buttons 4 and 5 are ignored here.  they're used for the wheel.
-	// buttons 6, 7, etc and up map to 4, 5, etc.
-	else if (button >= 6) {
-		return static_cast<ButtonID>(button - 2);
+	// buttons 4, 5, 6, and 7 are ignored here.  they're used for the wheel.
+	// buttons 8, 9, etc and up map to 4, 5, etc.
+	else if (button >= 8) {
+		return static_cast<ButtonID>(button - 4);
 	}
 
 	// unknown button
@@ -1882,20 +1890,30 @@ XWindowsScreen::mapButtonFromX(const XButtonEvent* event) const
 unsigned int
 XWindowsScreen::mapButtonToX(ButtonID id) const
 {
-	// map button -1 to button 4 (+wheel)
+	// map button -1 to button 4 (+ywheel)
 	if (id == static_cast<ButtonID>(-1)) {
 		id = 4;
 	}
 
-	// map button -2 to button 5 (-wheel)
+	// map button -2 to button 5 (-ywheel)
 	else if (id == static_cast<ButtonID>(-2)) {
 		id = 5;
 	}
 
-	// map buttons 4, 5, etc. to 6, 7, etc. to make room for buttons
-	// 4 and 5 used to simulate the mouse wheel.
+	// map button -3 to button 6 (-xwheel)
+	else if (id == static_cast<ButtonID>(-3)) {
+		id = 6;
+	}
+
+	// map button -4 to button 7 (+xwheel)
+	else if (id == static_cast<ButtonID>(-4)) {
+		id = 7;
+	}
+
+	// map buttons 4, 5, etc. to 8, 9, etc. to make room for buttons
+	// 4, 5, 6, and 7 used to simulate the mouse wheel.
 	else if (id >= 4) {
-		id += 2;
+		id += 4;
 	}
 
 	// check button is in legal range

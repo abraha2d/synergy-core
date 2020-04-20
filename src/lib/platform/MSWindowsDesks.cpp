@@ -739,9 +739,10 @@ MSWindowsDesks::deskThread(void* vdesk)
             break;
 
         case SYNERGY_MSG_FAKE_WHEEL:
-            // XXX -- add support for x-axis scrolling
             if (msg.lParam != 0) {
                 send_mouse_input(MOUSEEVENTF_WHEEL, 0, 0, (DWORD)msg.lParam);
+            } else {
+                send_mouse_input(MOUSEEVENTF_HWHEEL, 0, 0, (DWORD)msg.wParam);
             }
             break;
 

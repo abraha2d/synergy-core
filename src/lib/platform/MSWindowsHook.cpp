@@ -546,6 +546,13 @@ mouseHookHandler(WPARAM wParam, SInt32 x, SInt32 y, SInt32 data)
     case WM_MOUSEWHEEL:
         if (g_mode == kHOOK_RELAY_EVENTS) {
             // relay event
+            PostThreadMessage(g_threadID, SYNERGY_MSG_MOUSE_WHEEL, 0, data);
+        }
+        return (g_mode == kHOOK_RELAY_EVENTS);
+
+    case WM_MOUSEHWHEEL:
+        if (g_mode == kHOOK_RELAY_EVENTS) {
+            // relay event
             PostThreadMessage(g_threadID, SYNERGY_MSG_MOUSE_WHEEL, data, 0);
         }
         return (g_mode == kHOOK_RELAY_EVENTS);

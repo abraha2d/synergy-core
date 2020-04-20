@@ -1074,8 +1074,8 @@ MSWindowsScreen::onPreDispatchPrimary(HWND,
                             static_cast<SInt32>(lParam));
 
     case SYNERGY_MSG_MOUSE_WHEEL:
-        // XXX -- support x-axis scrolling
-        return onMouseWheel(0, static_cast<SInt32>(wParam));
+        return onMouseWheel(static_cast<SInt32>(wParam));
+                             static_cast<SInt32>(lParam));
 
     case SYNERGY_MSG_PRE_WARP:
         {
